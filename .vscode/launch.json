@@ -6,10 +6,10 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceRoot}/bin/Debug/netcoreapp1.1/AsyncTest.dll",
+            "program": "${workspaceRoot}/bin/Debug/netcoreapp1.1/CSharpSamples.dll",
             "args": [],
             "cwd": "${workspaceRoot}",
-            "externalConsole": false,
+            "externalConsole": true,
             "stopAtEntry": false,
             "internalConsoleOptions": "openOnSessionStart"
         },

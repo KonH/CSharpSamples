@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace AsyncTest
+namespace CSharpSamples
 {
     public class Factory
     {
