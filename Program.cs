@@ -1,12 +1,47 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace AsyncTest
+namespace CSharpSamples
 {
     public class Program
     {
+        static List<Case> Cases = new List<Case>();
+
         public static void Main(string[] args)
         {
+            InitCases();
+            ProcessInput();
+        }
+
+        static void InitCases() 
+        {
+            AddCase("async", "some async features", () => AsyncTest());
+            AddCase("carrying", "one functional feature", () => Carrying.Test());
+        }
+
+        static void AddCase(string name, string description, Action callback) {
+            Cases.Add(new Case(name, description, callback));
+        }
+
+        static void ProcessInput() {
+            Console.WriteLine("Select Test:");
+            for(int i = 0; i < Cases.Count; i++)
+            {
+                var c = Cases[i];
+                Console.WriteLine(string.Format("{0}. {1} ({2})", i, c.Name, c.Description));
+            }
+            var input = Console.ReadLine();
+            var number = int.Parse(input);
+            if( number >= 0 && number < Cases.Count ) 
+            {
+                var c = Cases[number];
+                c.Callback();
+            }
+            Console.ReadKey();
+        }
+
+        static void AsyncTest() {
             var t = MainAsync();
             t.Wait();
         }
