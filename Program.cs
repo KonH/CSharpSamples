@@ -19,6 +19,7 @@ namespace CSharpSamples
             AddCase("async", "some async features", () => AsyncTest());
             AddCase("carrying", "one functional feature", () => Carrying.Test());
             AddCase("lazy", "lazy init", () => LazyTest.Process());
+            AddCase("format", "string formatting", () => StringFormat.Test());
         }
 
         static void AddCase(string name, string description, Action callback) {
