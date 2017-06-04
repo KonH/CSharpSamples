@@ -19,6 +19,7 @@ namespace CSharpSamples {
 			AddCase("prop notify", "INotifyPropertyChanged example", () => INotifyPropertyChangedExample.Test());
 			AddCase("linked list", "linked list example", () => LinkedListTest.Test());
 			AddCase("rx", "reactive extensions example", () => ReactiveExtensions.Test());
+			AddCase("immutable", "immutable list example", () => Immutable.Test());
 		}
 
 		static void AddCase(string name, string description, Action callback) {
