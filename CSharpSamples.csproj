@@ -64,6 +64,7 @@
   <ItemGroup>
     <Compile Include="Carrying.cs" />
     <Compile Include="Case.cs" />
+    <Compile Include="ExtMethods.cs" />
     <Compile Include="Factory.cs" />
     <Compile Include="FSWatcher.cs" />
     <Compile Include="Immutable.cs" />

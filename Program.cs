@@ -21,6 +21,7 @@ namespace CSharpSamples {
 			AddCase("rx", "reactive extensions example", () => ReactiveExtensions.Test());
 			AddCase("immutable", "immutable list example", () => Immutable.Test());
 			AddCase("fs watcher", "filesystem watcher example", () => FSWatcher.Test());
+			AddCase("ext methods", "extension method example", () => ExtMethods.Test());
 		}
 
 		static void AddCase(string name, string description, Action callback) {
