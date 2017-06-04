@@ -18,6 +18,7 @@ namespace CSharpSamples {
 			AddCase("format", "string formatting", () => StringFormat.Test());
 			AddCase("prop notify", "INotifyPropertyChanged example", () => INotifyPropertyChangedExample.Test());
 			AddCase("linked list", "linked list example", () => LinkedListTest.Test());
+			AddCase("rx", "reactive extensions example", () => ReactiveExtensions.Test());
 		}
 
 		static void AddCase(string name, string description, Action callback) {
