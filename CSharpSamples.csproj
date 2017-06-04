@@ -65,6 +65,7 @@
     <Compile Include="Carrying.cs" />
     <Compile Include="Case.cs" />
     <Compile Include="Factory.cs" />
+    <Compile Include="FSWatcher.cs" />
     <Compile Include="Immutable.cs" />
     <Compile Include="INotifyPropertyChangedExample.cs" />
     <Compile Include="LazyTest.cs" />
