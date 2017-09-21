@@ -11,6 +11,6 @@ Thumbs.db
 $RECYCLE.BIN/
 Desktop.ini
 
-.vs/CSharpSamples/v15/.suo
+.vs/
 packages/
 .idea
