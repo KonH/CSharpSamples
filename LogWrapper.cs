@@ -7,8 +7,7 @@ namespace CSharpSamples {
 	public static class LogWrapper {
 		public interface ILogics {
 			void DoSimpleWork();
-			// TODO
-			//void DoWorkWithArg(string arg);
+			void DoWorkWithArg(string arg);
 		}
 
 		class RealWorker : ILogics {
@@ -16,9 +15,9 @@ namespace CSharpSamples {
 				Console.WriteLine("Some work");
 			}
 
-			/*public void DoWork(string arg) {
+			public void DoWorkWithArg(string arg) {
 				Console.WriteLine("Some work with arg");
-			}*/
+			}
 		}
 
 		// Very annoying boilerplate
@@ -33,6 +32,12 @@ namespace CSharpSamples {
 				Console.WriteLine("DoSimpleWork: start");
 				_worker.DoSimpleWork();
 				Console.WriteLine("DoSimpleWork: end");
+			}
+
+			public void DoWorkWithArg(string arg) {
+				Console.WriteLine($"DoWorkWithArg('{arg}'): start");
+				_worker.DoWorkWithArg(arg);
+				Console.WriteLine("DoWorkWithArg: end");
 			}
 		}
 
@@ -53,15 +58,12 @@ namespace CSharpSamples {
 			var instanceField = typeBuilder.DefineField("_instance", typeof(T), FieldAttributes.Private);
 
 			var constBuilder = typeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.HasThis, new Type[] { originType });
-			var constGen = constBuilder.GetILGenerator();
-
-			constGen.Emit(OpCodes.Ldarg_0); // this
-			constGen.Emit(OpCodes.Ldarg_1); // instance
-			constGen.Emit(OpCodes.Stfld, instanceField); // _instance = instance
-			constGen.Emit(OpCodes.Ret);
+			CreateConstructor(constBuilder.GetILGenerator(), instanceField);
 
 			var consoleWriteLineMethod = 
 				typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) });
+			var stringFormatMethod =
+				typeof(string).GetMethod("Format", new Type[] { typeof(string), typeof(object) });
 
 			var methods = originType.GetMethods();
 			foreach ( var method in methods ) {
@@ -72,17 +74,7 @@ namespace CSharpSamples {
 					method.ReturnType,
 					method.GetParameters().Select(pInfo => pInfo.ParameterType).ToArray()
 				);
-				var gen = methodBuilder.GetILGenerator();
-
-				gen.Emit(OpCodes.Ldarg_0); // this
-				gen.Emit(OpCodes.Ldstr, $"{method.Name}: start"); // string literal
-				gen.Emit(OpCodes.Call, consoleWriteLineMethod); // Console.WriteLine
-				gen.Emit(OpCodes.Ldfld, instanceField); // _instance
-				gen.EmitCall(OpCodes.Callvirt, method, null); // call wrapped method
-				gen.Emit(OpCodes.Ldstr, $"{method.Name}: end"); // string literal
-				gen.Emit(OpCodes.Call, consoleWriteLineMethod); // Console.WriteLine
-				gen.Emit(OpCodes.Ret);
-
+				CreateMethodWrapper(methodBuilder.GetILGenerator(), method, consoleWriteLineMethod, stringFormatMethod, instanceField);
 				typeBuilder.DefineMethodOverride(methodBuilder, method);
 			}
 			var wrapperType = typeBuilder.CreateType();
@@ -90,9 +82,43 @@ namespace CSharpSamples {
 			return wrapperInstance;
 		}
 
+		static void CreateConstructor(ILGenerator constGen, FieldInfo instanceField) {
+			constGen.Emit(OpCodes.Ldarg_0); // this
+			constGen.Emit(OpCodes.Ldarg_1); // instance
+			constGen.Emit(OpCodes.Stfld, instanceField); // _instance = instance
+			constGen.Emit(OpCodes.Ret);
+		}
+
+		static void CreateMethodWrapper(
+			ILGenerator gen, MethodInfo method, MethodInfo consoleWriteLineMethod, MethodInfo stringFormatMethod, FieldBuilder instanceField
+		) {
+			var parameters = method.GetParameters().Length;
+			if ( parameters > 1 ) {
+				throw new NotSupportedException();
+			}
+			gen.Emit(OpCodes.Ldarg_0); // this
+			if ( parameters > 0 ) {
+				gen.Emit(OpCodes.Ldstr, $"{method.Name}('{{0}}'): start"); // string literal
+				gen.Emit(OpCodes.Ldarg_1); // arg 0
+				gen.Emit(OpCodes.Call, stringFormatMethod);
+			} else {
+				gen.Emit(OpCodes.Ldstr, $"{method.Name}: start"); // string literal
+			}
+			gen.Emit(OpCodes.Call, consoleWriteLineMethod); // Console.WriteLine
+			gen.Emit(OpCodes.Ldfld, instanceField); // _instance
+			if ( parameters > 0 ) {
+				gen.Emit(OpCodes.Ldarg_1); // arg 0
+			}
+			gen.EmitCall(OpCodes.Callvirt, method, null); // call wrapped method
+			gen.Emit(OpCodes.Ldstr, $"{method.Name}: end"); // string literal
+			gen.Emit(OpCodes.Call, consoleWriteLineMethod); // Console.WriteLine
+			gen.Emit(OpCodes.Ret);
+		}
+
 		public static void Test() {
 			var wrapper = CreateLogWrapper<ILogics>(new RealWorker());
 			wrapper.DoSimpleWork();
+			wrapper.DoWorkWithArg("my arg");
 		}
 	}
 }
