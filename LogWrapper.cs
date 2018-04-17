@@ -8,6 +8,7 @@ namespace CSharpSamples {
 		public interface ILogics {
 			void DoSimpleWork();
 			void DoWorkWithArg(string arg);
+			void DoWorkWithArgs(string arg0, string arg1, string arg2);
 		}
 
 		class RealWorker : ILogics {
@@ -17,6 +18,10 @@ namespace CSharpSamples {
 
 			public void DoWorkWithArg(string arg) {
 				Console.WriteLine("Some work with arg");
+			}
+
+			public void DoWorkWithArgs(string arg0, string arg1, string arg2) {
+				Console.WriteLine("Some work with another args");
 			}
 		}
 
@@ -38,6 +43,17 @@ namespace CSharpSamples {
 				Console.WriteLine($"DoWorkWithArg('{arg}'): start");
 				_worker.DoWorkWithArg(arg);
 				Console.WriteLine("DoWorkWithArg: end");
+			}
+
+			public void DoWorkWithArgs(string arg0, string arg1, string arg2) {
+				var args = new object[3];
+				args[0] = arg0;
+				args[1] = arg1;
+				args[2] = arg2;
+				var str = string.Format("{0}; {1}; {2}", args);
+				Console.WriteLine($"DoWorkWithArgs('{str}'): start");
+				_worker.DoWorkWithArgs(arg0, arg1, arg2);
+				Console.WriteLine("DoWorkWithArgs: end");
 			}
 		}
 
@@ -63,7 +79,7 @@ namespace CSharpSamples {
 			var consoleWriteLineMethod = 
 				typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) });
 			var stringFormatMethod =
-				typeof(string).GetMethod("Format", new Type[] { typeof(string), typeof(object) });
+				typeof(string).GetMethod("Format", new Type[] { typeof(string), typeof(object[]) });
 
 			var methods = originType.GetMethods();
 			foreach ( var method in methods ) {
@@ -93,21 +109,40 @@ namespace CSharpSamples {
 			ILGenerator gen, MethodInfo method, MethodInfo consoleWriteLineMethod, MethodInfo stringFormatMethod, FieldBuilder instanceField
 		) {
 			var parameters = method.GetParameters().Length;
-			if ( parameters > 1 ) {
-				throw new NotSupportedException();
+			LocalBuilder paramValues = null;
+			if ( parameters > 0 ) {
+				paramValues = gen.DeclareLocal(typeof(object[]));
 			}
 			gen.Emit(OpCodes.Ldarg_0); // this
 			if ( parameters > 0 ) {
-				gen.Emit(OpCodes.Ldstr, $"{method.Name}('{{0}}'): start"); // string literal
-				gen.Emit(OpCodes.Ldarg_1); // arg 0
+				var formatStr = "";
+				for ( var i = 0; i < parameters; i++ ) {
+					formatStr += $"'{{{i}}}'; ";
+				}
+				formatStr = formatStr.Substring(0, formatStr.Length - 2);
+
+				gen.Emit(OpCodes.Ldc_I4_S, parameters); // make params array
+				gen.Emit(OpCodes.Newarr, typeof(object));
+				gen.Emit(OpCodes.Stloc, paramValues);
+
+				// fill array
+				for ( var i = 0; i < parameters; i++ ) {
+					gen.Emit(OpCodes.Ldloc_0); // load array
+					gen.Emit(OpCodes.Ldc_I4, i); // load array index
+					gen.Emit(OpCodes.Ldarg, 1 + i); // load arg i
+					gen.Emit(OpCodes.Stelem_Ref); // set value
+				}
+
+				gen.Emit(OpCodes.Ldstr, $"{method.Name}({formatStr}): start"); // string literal
+				gen.Emit(OpCodes.Ldloc_0); // load params array
 				gen.Emit(OpCodes.Call, stringFormatMethod);
 			} else {
 				gen.Emit(OpCodes.Ldstr, $"{method.Name}: start"); // string literal
 			}
 			gen.Emit(OpCodes.Call, consoleWriteLineMethod); // Console.WriteLine
 			gen.Emit(OpCodes.Ldfld, instanceField); // _instance
-			if ( parameters > 0 ) {
-				gen.Emit(OpCodes.Ldarg_1); // arg 0
+			for ( var i = 0; i < parameters; i++ ) {
+				gen.Emit(OpCodes.Ldarg, 1 + i); // arg i
 			}
 			gen.EmitCall(OpCodes.Callvirt, method, null); // call wrapped method
 			gen.Emit(OpCodes.Ldstr, $"{method.Name}: end"); // string literal
@@ -119,6 +154,7 @@ namespace CSharpSamples {
 			var wrapper = CreateLogWrapper<ILogics>(new RealWorker());
 			wrapper.DoSimpleWork();
 			wrapper.DoWorkWithArg("my arg");
+			wrapper.DoWorkWithArgs("my arg 0", "my arg 1", "my arg 2");
 		}
 	}
 }
