@@ -9,6 +9,8 @@ namespace CSharpSamples {
 			void DoSimpleWork();
 			void DoWorkWithArg(string arg);
 			void DoWorkWithArgs(string arg0, string arg1, string arg2);
+			string GetSomeString();
+			bool IsWorkDone();
 		}
 
 		class RealWorker : ILogics {
@@ -22,6 +24,14 @@ namespace CSharpSamples {
 
 			public void DoWorkWithArgs(string arg0, string arg1, string arg2) {
 				Console.WriteLine("Some work with another args");
+			}
+
+			public string GetSomeString() {
+				return "my_string";
+			}
+
+			public bool IsWorkDone() {
+				return true;
 			}
 		}
 
@@ -55,6 +65,20 @@ namespace CSharpSamples {
 				_worker.DoWorkWithArgs(arg0, arg1, arg2);
 				Console.WriteLine("DoWorkWithArgs: end");
 			}
+
+			public string GetSomeString() {
+				Console.WriteLine("GetSomeString: start");
+				var result = _worker.GetSomeString();
+				Console.WriteLine($"GetSomeString: end, result: {result}");
+				return result;
+			}
+
+			public bool IsWorkDone() {
+				Console.WriteLine("IsWorkDone: start");
+				var result = _worker.IsWorkDone();
+				Console.WriteLine($"IsWorkDone: end, result: {result}");
+				return result;
+			}
 		}
 
 		static T CreateLogWrapper<T>(T instance) where T : class {
@@ -78,7 +102,9 @@ namespace CSharpSamples {
 
 			var consoleWriteLineMethod = 
 				typeof(Console).GetMethod("WriteLine", new Type[] { typeof(string) });
-			var stringFormatMethod =
+			var stringFormatMethodSingleArg =
+				typeof(string).GetMethod("Format", new Type[] { typeof(string), typeof(object) });
+			var stringFormatMethodWithParams =
 				typeof(string).GetMethod("Format", new Type[] { typeof(string), typeof(object[]) });
 
 			var methods = originType.GetMethods();
@@ -90,7 +116,14 @@ namespace CSharpSamples {
 					method.ReturnType,
 					method.GetParameters().Select(pInfo => pInfo.ParameterType).ToArray()
 				);
-				CreateMethodWrapper(methodBuilder.GetILGenerator(), method, consoleWriteLineMethod, stringFormatMethod, instanceField);
+				CreateMethodWrapper(
+					methodBuilder.GetILGenerator(),
+					method,
+					consoleWriteLineMethod,
+					stringFormatMethodSingleArg,
+					stringFormatMethodWithParams,
+					instanceField
+				);
 				typeBuilder.DefineMethodOverride(methodBuilder, method);
 			}
 			var wrapperType = typeBuilder.CreateType();
@@ -106,13 +139,25 @@ namespace CSharpSamples {
 		}
 
 		static void CreateMethodWrapper(
-			ILGenerator gen, MethodInfo method, MethodInfo consoleWriteLineMethod, MethodInfo stringFormatMethod, FieldBuilder instanceField
+			ILGenerator gen,
+			MethodInfo method,
+			MethodInfo consoleWriteLineMethod,
+			MethodInfo stringFormatMethodSingleArg,
+			MethodInfo stringFormatMethodWithParams,
+			FieldBuilder instanceField
 		) {
 			var parameters = method.GetParameters().Length;
 			LocalBuilder paramValues = null;
 			if ( parameters > 0 ) {
 				paramValues = gen.DeclareLocal(typeof(object[]));
 			}
+			LocalBuilder resultValue = null;
+			LocalBuilder returnValue = null;
+			if ( method.ReturnType != typeof(void) ) {
+				resultValue = gen.DeclareLocal(method.ReturnType);
+				returnValue = gen.DeclareLocal(method.ReturnType);
+			}
+
 			gen.Emit(OpCodes.Ldarg_0); // this
 			if ( parameters > 0 ) {
 				var formatStr = "";
@@ -135,7 +180,7 @@ namespace CSharpSamples {
 
 				gen.Emit(OpCodes.Ldstr, $"{method.Name}({formatStr}): start"); // string literal
 				gen.Emit(OpCodes.Ldloc_0); // load params array
-				gen.Emit(OpCodes.Call, stringFormatMethod);
+				gen.Emit(OpCodes.Call, stringFormatMethodWithParams);
 			} else {
 				gen.Emit(OpCodes.Ldstr, $"{method.Name}: start"); // string literal
 			}
@@ -145,8 +190,25 @@ namespace CSharpSamples {
 				gen.Emit(OpCodes.Ldarg, 1 + i); // arg i
 			}
 			gen.EmitCall(OpCodes.Callvirt, method, null); // call wrapped method
-			gen.Emit(OpCodes.Ldstr, $"{method.Name}: end"); // string literal
+			if ( resultValue != null ) {
+				gen.Emit(OpCodes.Stloc, resultValue.LocalIndex); // store result if any
+			}
+
+			if ( resultValue == null ) {
+				gen.Emit(OpCodes.Ldstr, $"{method.Name}: end"); // string literal
+			} else {
+				gen.Emit(OpCodes.Ldstr, $"{method.Name}: end, result: '{{0}}'");
+				gen.Emit(OpCodes.Ldloc, resultValue.LocalIndex); // load result
+				if( resultValue.LocalType.IsValueType ) { // value type must be boxed in this case
+					gen.Emit(OpCodes.Box, resultValue.LocalType);
+				}
+				gen.Emit(OpCodes.Call, stringFormatMethodSingleArg);
+			}
 			gen.Emit(OpCodes.Call, consoleWriteLineMethod); // Console.WriteLine
+			
+			if ( resultValue != null ) {
+				gen.Emit(OpCodes.Ldloc, resultValue.LocalIndex);
+			}
 			gen.Emit(OpCodes.Ret);
 		}
 
@@ -155,6 +217,10 @@ namespace CSharpSamples {
 			wrapper.DoSimpleWork();
 			wrapper.DoWorkWithArg("my arg");
 			wrapper.DoWorkWithArgs("my arg 0", "my arg 1", "my arg 2");
+			var str = wrapper.GetSomeString();
+			Console.WriteLine(str);
+			var result = wrapper.IsWorkDone();
+			Console.WriteLine(result);
 		}
 	}
 }
